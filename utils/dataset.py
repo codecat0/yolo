@@ -101,12 +101,17 @@ class LoadImagesAndLabels(Dataset):   # for training/testing
             # 检查缓存的hash值是否发生改变,当缓存文件的名称和大小未发生变化时，hash值不变
             if cache['hash'] != get_hash(self.label_files + self.img_files):
                 # 重写缓存信息, 并将缓存存在信息设置为False
-                cache, exists =
+                cache, exists = self.cache_labels(cache_path), False
+        else:
+            cache, exists = self.cache_labels(cache_path), False
+
+        # 读取cache
 
 
     # 将数据集的labels信息加载到缓存，检查images信息和读取image形状
     def cache_labels(self, path=Path('./labels.cache')):
         x = {}
+        # labels丢失数量，labels正常数量，labels为空的数量，labels出现重复的数量
         nm, nf, ne, nc = 0, 0, 0, 0
         pbar = tqdm(zip(self.img_files, self.label_files), desc='Scanning images', total=len(self.img_files))
         for i, (im_file, lb_file) in enumerate(pbar):
@@ -136,5 +141,24 @@ class LoadImagesAndLabels(Dataset):   # for training/testing
                 x[im_file] = [l, shape]
             except Exception as e:
                 nc += 1
+                print(f'WARNING: Ignoring corrupted image and/or label {im_file}: {e}')
 
+            pbar.desc = f"Scanning '{path.parent / path.stem}' images and labels... " \
+                        f"{nf} found, {nm} missing, {ne} empty, {nc} corrupted"
 
+        pbar.close()
+
+        if nf == 0:
+            print(f'WARNING: No labels found in {path}. See {help_url}')
+
+        x['hash'] = get_hash(self.label_files + self.img_files)
+        x['results'] = nf, nm, ne, nc, i+1
+
+        try:
+            # 保存缓存文件
+            torch.save(x, path)
+            print(f'New cache created: {path}')
+        except Exception as e:
+            print(f'WARNING: Cache directory {path.parent} is not writeable: {e}')
+
+        return x
