@@ -56,7 +56,7 @@ def exif_size(img):
 class LoadImagesAndLabels(Dataset):   # for training/testing
     def __init__(self,
                  path,  # 指向data/images的路径
-                 img_size=416,   # 预处理后输出的图像尺寸
+                 img_size=640,   # 预处理后输出的图像尺寸
                  batch_size=16,
                  hyp=None,  # 超参数字典
                  rect=False,    # 是否使用rectangular training
@@ -237,7 +237,7 @@ class LoadImagesAndLabels(Dataset):   # for training/testing
         # 导入图像
         img, (h0, w0), (h, w) = load_image(self, index)
 
-        shape = self.batch_shapes[self.batch[index] if self.rect else self.img_size]
+        shape = self.batch_shapes[self.batch[index]] if self.rect else self.img_size
         img, ratio, pad = letterbox(img, shape, auto=False)
         shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP resacling
 

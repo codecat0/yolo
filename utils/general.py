@@ -3,9 +3,15 @@
 @Author : CodeCat
 @Time : 2021/6/18 下午5:37
 """
+
 import math
-import torch
+import random
+import glob
 import numpy as np
+from pathlib import Path
+
+import torch
+import torch.backends.cudnn as cudnn
 
 
 def make_divisible(x, divisor):
@@ -34,7 +40,7 @@ def wh_iou(wh1, wh2):
     wh1 = wh1[:, None]  # [N, 1, 2]
     wh2 = wh2[None]     # [1, M, 2]
     inter = torch.min(wh1, wh2).prod(2)     # [N, M]
-    return inter / (wh1.prod(2) + wh2.prdo(2) - inter)
+    return inter / (wh1.prod(2) + wh2.prod(2) - inter)
 
 
 def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIou=False, eps=1e-7):
@@ -85,3 +91,41 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIou=False, eps=
             return iou - (c_area - union) / c_area
     else:
         return iou
+
+
+def init_torch_seeds(seed=0):
+    # Speed-reproducibility tradeoff https://pytorch.org/docs/stable/notes/randomness.html
+    torch.manual_seed(seed)
+    if seed == 0:  # slower, more reproducible
+        cudnn.benchmark, cudnn.deterministic = False, True
+    else:  # faster, less reproducible
+        cudnn.benchmark, cudnn.deterministic = True, False
+
+
+def init_seeds(seed=0):
+    # Initialize random number generator (RNG) seeds
+    random.seed(seed)
+    np.random.seed(seed)
+    init_torch_seeds(seed)
+
+
+def one_cycle(y1=0.0, y2=1.0, steps=100):
+    return lambda x: ((1 - math.cos(x * math.pi / steps)) / 2) * (y2 - y1) + y1
+
+
+def check_img_size(img_size, s=32):
+    # Verify img_size is a multiple of stride s
+    new_size = make_divisible(img_size, int(s))  # ceil gs-multiple
+    if new_size != img_size:
+        print('WARNING: --img-size %g must be multiple of max stride %g, updating to %g' % (img_size, s, new_size))
+    return new_size
+
+
+def check_file(file):
+    file = str(file)
+    if Path(file).is_file() or file == '':
+        return file
+    else:
+        files = glob.glob('./**/' + file, recursive=True)
+        assert len(files), f'File not fount: {file}'
+        return file[0]

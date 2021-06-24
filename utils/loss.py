@@ -59,6 +59,8 @@ class ComputeLoss:
                 ps = pi[b, a, gj, gi]
 
                 # Regression
+                # pxy = ps[:, :2].sigmoid() * 2. - 0.5
+                # pwh = (ps[:, 2:4].sigmoid() * 2) ** 2 * anchors[i]
                 pxy = ps[:, :2].sigmoid()
                 pwh = ps[:, 2:4].exp().clamp(max=1E3) * anchors[i]
                 # predicted box
@@ -68,7 +70,7 @@ class ComputeLoss:
 
                 # Objectness
                 # self.gr = 1.0
-                tobj[b, a, gj, gi] = (1.0 - self.gr) + self.gr * iou.detach().clamp(0).type(tobj.type)  # iou ratio
+                tobj[b, a, gj, gi] = (1.0 - self.gr) + self.gr * iou.detach().clamp(0).type(tobj.dtype)      # iou ratio
 
                 # Classification
                 if self.nc > 1:
@@ -102,7 +104,7 @@ class ComputeLoss:
             anchors = self.anchors[i]
             # 获取特征图的尺寸
             # p : [(b, 3, w, h, 5+classes),..]
-            gain[2:6] = torch.tensor(p[i].shape[[3, 2, 3, 2]])
+            gain[2:6] = torch.tensor(p[i].shape)[[3, 2, 3, 2]]
             # [3] -> [3, 1] -> [3, nt]
             at = torch.arange(na).view(na, 1).repeat(1, nt)
 
@@ -118,20 +120,20 @@ class ComputeLoss:
 
             # Define
             # image, class
-            b, c = t[:, :2].to(torch.int64).T
+            b, c = t[:, :2].long().T
             # grid xy
             gxy = t[:, 2:4]
             # grid wh
             gwh = t[:, 4:6]
             # 匹配targets所在grid cell的左上角坐标
-            gij = (gxy - offsets).to(torch.int64)
+            gij = (gxy - offsets).long()
             gi, gj = gij.T
 
             # Append
             # image, anchor, grid indcices
             indices.append((b, a, gj.clamp_(0, gain[3] - 1), gi.clamp(0, gain[2] - 1)))
             # gt box相对anchor的x, y偏移量以及w,h
-            tbox.append(torch.cat((gxy - gij), gwh), 1)
+            tbox.append(torch.cat((gxy - gij, gwh), 1))
             # anchors
             anch.append(anchors[a])
             # class
