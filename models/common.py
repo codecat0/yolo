@@ -31,12 +31,12 @@ class Bottleneck(nn.Module):
     def __init__(self, c1, c2, shortcut=True, g=1, e=0.5):
         super(Bottleneck, self).__init__()
         hidden = int(c2 * e)
-        self.conv1 = Conv(c1, hidden, 1, 1)
-        self.conv2 = Conv(hidden, c2, 3, 1, g=g)
+        self.cv1 = Conv(c1, hidden, 1, 1)
+        self.cv2 = Conv(hidden, c2, 3, 1, g=g)
         self.add = shortcut and c1 == c2
 
     def forward(self, x):
-        return x + self.conv2(self.conv1(x)) if self.add else self.conv2(self.conv1(x))
+        return x + self.cv2(self.cv1(x)) if self.add else self.cv2(self.cv1(x))
 
 
 class Concat(nn.Module):

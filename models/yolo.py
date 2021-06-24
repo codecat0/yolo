@@ -4,23 +4,25 @@
 @Time : 2021/6/18 上午11:04
 """
 import argparse
-import sys
-from copy import deepcopy
-from pathlib import Path
 import yaml
+from pathlib import Path
+from copy import deepcopy
+import math
 
 import torch
 import torch.nn as nn
 
-from models.common import *
-from utils.general import *
-from utils.torch_utils import *
+
+from models.common import Conv, Bottleneck, Concat
+from utils.general import make_divisible
+from utils.torch_utils import initialize_weights
+from utils.autoanchor import check_anchor_order
 
 
 class Detect(nn.Module):
     stride = None
 
-    def __init__(self, nc=80, anchors=(), ch=(), inplace=True):
+    def __init__(self, nc=80, anchors=(), ch=()):
         super(Detect, self).__init__()
         self.nc = nc    # 类别的数量
         self.no = nc + 5    # 每个anchor输出维度的数量
@@ -81,6 +83,8 @@ class Model(nn.Module):
             s = 256
             m.stride = torch.tensor([s / x.shape[-2] for x in self.forward(torch.zeros(1, ch, s, s))])
             m.anchors /= m.stride.view(-1, 1, 1)
+            check_anchor_order(m)
+            self.stride = m.stride
             self._initialize_biases()
 
         initialize_weights(self)
@@ -148,3 +152,20 @@ def parse_model(d, ch):   # 模型参数字典，输入通道数
             ch = []
         ch.append(c2)
     return nn.Sequential(*layers), sorted(save)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--cfg', type=str, default='yolov3.yaml', help='model.yaml')
+    parser.add_argument('--device', default='cpu', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    opt = parser.parse_args()
+
+    # Create model
+    model = Model(opt.cfg).to(opt.device)
+
+    for idx, module in enumerate(model.model):
+        if isinstance(module, Detect):
+            output_layer_indices = module.f
+            output_layer_indices.append(idx)
+
+    print(output_layer_indices)
